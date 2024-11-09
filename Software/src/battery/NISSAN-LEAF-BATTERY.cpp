@@ -215,9 +215,9 @@ void update_values_battery() { /* This function maps all the values fetched via 
   } else {  // ZE1 (TODO: Once the muxed value in 5C0 becomes known, switch to using that instead of this complicated polled value)
     if (battery_temp_raw_min != 0)  //We have a polled value available
     {
-      battery_temp_polled_min = ((Temp_fromRAW_to_F(battery_temp_raw_min) - 320) * 5) / 9;  //Convert from F to C
-      battery_temp_polled_max = ((Temp_fromRAW_to_F(battery_temp_raw_max) - 320) * 5) / 9;  //Convert from F to C
-      if (battery_temp_polled_min < battery_temp_polled_max) {  //Catch any edge cases from Temp_fromRAW_to_F function
+      battery_temp_polled_min = raw_temp_to_c(battery_temp_raw_min);
+      battery_temp_polled_max = raw_temp_to_c(battery_temp_raw_max);
+      if (battery_temp_polled_min < battery_temp_polled_max) {  // Flip min and max values if min > max
         datalayer.battery.status.temperature_min_dC = battery_temp_polled_min;
         datalayer.battery.status.temperature_max_dC = battery_temp_polled_max;
       } else {
@@ -388,9 +388,9 @@ void update_values_battery2() {  // Handle the values coming in from battery #2
   } else {  // ZE1 (TODO: Once the muxed value in 5C0 becomes known, switch to using that instead of this complicated polled value)
     if (battery2_temp_raw_min != 0)  //We have a polled value available
     {
-      battery2_temp_polled_min = ((Temp_fromRAW_to_F(battery2_temp_raw_min) - 320) * 5) / 9;  //Convert from F to C
-      battery2_temp_polled_max = ((Temp_fromRAW_to_F(battery2_temp_raw_max) - 320) * 5) / 9;  //Convert from F to C
-      if (battery2_temp_polled_min < battery2_temp_polled_max) {  //Catch any edge cases from Temp_fromRAW_to_F function
+      battery2_temp_polled_min = raw_temp_to_c(battery2_temp_raw_min);
+      battery2_temp_polled_max = raw_temp_to_c(battery2_temp_raw_max);
+      if (battery2_temp_polled_min < battery2_temp_polled_max) {  // Flip min and max values if min > max
         datalayer.battery2.status.temperature_min_dC = battery2_temp_polled_min;
         datalayer.battery2.status.temperature_max_dC = battery2_temp_polled_max;
       } else {
@@ -1199,35 +1199,8 @@ bool is_message_corrupt(CAN_frame rx_frame) {
   return crc != rx_frame.data.u8[7];
 }
 
-uint16_t Temp_fromRAW_to_F(uint16_t temperature) {  //This function feels horrible, but apparently works well
-  if (temperature == 1021) {
-    return 10;
-  } else if (temperature >= 589) {
-    return static_cast<uint16_t>(1620 - temperature * 1.81);
-  } else if (temperature >= 569) {
-    return static_cast<uint16_t>(572 + (579 - temperature) * 1.80);
-  } else if (temperature >= 558) {
-    return static_cast<uint16_t>(608 + (558 - temperature) * 1.6363636363636364);
-  } else if (temperature >= 548) {
-    return static_cast<uint16_t>(626 + (548 - temperature) * 1.80);
-  } else if (temperature >= 537) {
-    return static_cast<uint16_t>(644 + (537 - temperature) * 1.6363636363636364);
-  } else if (temperature >= 447) {
-    return static_cast<uint16_t>(662 + (527 - temperature) * 1.8);
-  } else if (temperature >= 438) {
-    return static_cast<uint16_t>(824 + (438 - temperature) * 2);
-  } else if (temperature >= 428) {
-    return static_cast<uint16_t>(842 + (428 - temperature) * 1.80);
-  } else if (temperature >= 365) {
-    return static_cast<uint16_t>(860 + (419 - temperature) * 2.0);
-  } else if (temperature >= 357) {
-    return static_cast<uint16_t>(986 + (357 - temperature) * 2.25);
-  } else if (temperature >= 348) {
-    return static_cast<uint16_t>(1004 + (348 - temperature) * 2);
-  } else if (temperature >= 316) {
-    return static_cast<uint16_t>(1022 + (340 - temperature) * 2.25);
-  }
-  return static_cast<uint16_t>(1094 + (309 - temperature) * 2.5714285714285715);
+uint16_t raw_temp_to_c(uint16_t raw) {
+  return static_cast<uint16_t>(-0.000000434406 * pow(raw, 3) + 0.00098406 * pow(raw, 2) - 1.71963 * raw + 885.971);
 }
 
 void setup_battery(void) {  // Performs one time setup at startup
